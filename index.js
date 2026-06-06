@@ -1,85 +1,62 @@
-const discord = require('discord.js')
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
 require('dotenv').config();
-const fs = require('fs')
-const Client = new discord.Client({
-    intents: [discord.Intents.FLAGS.GUILDS, discord.Intents.FLAGS.GUILD_MEMBERS, discord.Intents.FLAGS.GUILD_MESSAGES, discord.Intents.FLAGS.DIRECT_MESSAGES, discord.Intents.FLAGS.GUILD_VOICE_STATES],
+const fs = require('fs');
+const dns = require('node:dns');
+dns.setDefaultResultOrder('ipv4first');
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.GuildVoiceStates,
+    ],
     allowedMentions: { parse: ['users', 'roles'], repliedUser: true }
-})
+});
+
+client.SlashCmds = new Collection();
+module.exports.Client = client;
+
+// Discord Player v6
+const { Player } = require('discord-player');
+const { YoutubeiExtractor } = require('discord-player-youtubei');
 const { registerPlayerEvents } = require('./player');
 
-Client.commands = new discord.Collection();
-Client.aliases = new discord.Collection();
-Client.events = new discord.Collection();
-Client.SlashCmds = new discord.Collection();
-module.exports.Client = Client
+client.player = new Player(client, {
+    skipFFmpeg: false,
+    connectionTimeout: 30000,
+});
 
-const { Player } = require("discord-player");
-Client.player = new Player(Client);
-registerPlayerEvents(Client.player);
+// YoutubeiExtractor using youtube-dl-exec (yt-dlp) as requested (like rawon)
+client.player.extractors.register(YoutubeiExtractor, {
+    useYoutubeDL: true
+});
+// Load remaining extractors (Spotify, SoundCloud, etc.) — skip built-in YouTube
+client.player.extractors.loadDefault((ext) => ext !== 'YouTubeExtractor');
 
-//Command Handler & Aliases
-fs.readdirSync('./commands').forEach(dir => {
-    fs.readdir(`./commands/${dir}`, (err, files) => {
-        if(err) throw err;
-        
-        var jsFiles = files.filter(f => f.split(".").pop() === "js");
-        if (jsFiles.length <= 0) return console.log("[COMMANDS HANDLER] - Can't find any commands!");
-
-        jsFiles.forEach(file => {
-            var fileGet = require(`./commands/${dir}/${file}`);
-            console.log(`[COMMANDS HANDLER] - File ${file} was loaded`)
-
-            try {
-                Client.commands.set(fileGet.help.name, fileGet);
-
-                fileGet.help.aliases.forEach(alias => {
-                    Client.aliases.set(alias, fileGet.help.name);
-                })
-            } catch (err) {
-                return console.log(err);
-            }
-        })
-    })
-})
+// Register player error/event listeners
+registerPlayerEvents(client.player);
 
 // Event Handler
-fs.readdirSync('./events').forEach(file => {     
-    var jsFiles = fs.readdirSync('./events/').filter(f => f.split(".").pop() === "js");
-    if (jsFiles.length <= 0) return console.log("[EVENT HANDLER] - Can't find any events!");
-    let check = false
-    jsFiles.forEach(event => {
-        const eventGet = require(`./events/${event}`)
-        try {
-            Client.events.set(eventGet.name, eventGet)
-            if(check == false){
-                console.log(`[EVENT HANDLER] - File ${event} was loaded`)
-                check = true
-            }
-        } catch(error) {
-            return console.log(error)
-        }
-    })
-})
+const eventFiles = fs.readdirSync('./events').filter(f => f.endsWith('.js'));
+for (const file of eventFiles) {
+    require(`./events/${file}`);
+    console.log(`[EVENT HANDLER] - Loaded: ${file}`);
+}
 
-//Slash commands handler
+// Slash Commands Handler
 fs.readdirSync('./SlashCommands').forEach(dir => {
-    fs.readdir(`./SlashCommands/${dir}`, (err, files) => {
-        if(err) throw err;
-        
-        var jsFiles = files.filter(f => f.split(".").pop() === "js");
-        if (jsFiles.length <= 0) return console.log("[SLASH CMD HANDLER] - Can't find any commands!");
+    const files = fs.readdirSync(`./SlashCommands/${dir}`).filter(f => f.endsWith('.js'));
+    if (files.length === 0) return console.log(`[SLASH CMD HANDLER] - No commands found in ${dir}`);
 
-        jsFiles.forEach(file => {
-            var fileGet = require(`./SlashCommands/${dir}/${file}`);
-            console.log(`[SLASH CMD HANDLER] - File ${file} was loaded`)
+    files.forEach(file => {
+        const cmd = require(`./SlashCommands/${dir}/${file}`);
+        console.log(`[SLASH CMD HANDLER] - Loaded: ${file}`);
+        try {
+            client.SlashCmds.set(cmd.help.name, cmd);
+        } catch (err) {
+            console.error(`[SLASH CMD HANDLER] - Error loading ${file}:`, err);
+        }
+    });
+});
 
-            try {
-                Client.SlashCmds.set(fileGet.help.name, fileGet);
-            } catch (err) {
-                return console.log(err);
-            }
-        })
-    })
-})
-
-Client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN);

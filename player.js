@@ -1,36 +1,38 @@
 module.exports.registerPlayerEvents = (player) => {
 
-    player.on("error", (queue, error) => {
+    player.events.on('error', (queue, error) => {
         console.log(`[${queue.guild.name}] Error emitted from the queue: ${error.message}`);
-    });
-    player.on("connectionError", (queue, error) => {
-        console.log(`[${queue.guild.name}] Error emitted from the connection: ${error.message}`);
+        console.error('[FULL STACK]', error);
     });
 
-    player.on("botDisconnect", (queue) => {
-        if (queue) {
-            queue.clear();
-            queue.destroy(true);
-        }
+    player.events.on('playerError', (queue, error) => {
+        console.log(`[${queue.guild.name}] Player error: ${error.message}`);
+        console.error('[PLAYER ERROR STACK]', error);
     });
 
-    player.on("channelEmpty", (queue) => {
-        if (queue) {
-            queue.clear();
-            queue.destroy(true);
-        }
+    // player.on('debug', (msg) => {
+    //     console.log('[PLAYER DEBUG]', msg);
+    // });
+    // player.events.on('debug', (queue, msg) => {
+    //     console.log(`[QUEUE DEBUG ${queue.guild.name}]`, msg);
+    // });
+
+    player.events.on('disconnect', (queue) => {
+        queue.tracks.clear();
+        queue.delete();
     });
 
-    player.on("trackStart", (queue, track) => {
-        
+    player.events.on('emptyChannel', (queue) => {
+        console.log(`[${queue.guild.name}] Channel is empty, leaving...`);
     });
 
-    player.on("trackAdd", (queue, track) => {
-        
+    player.events.on('emptyQueue', (queue) => {
+        console.log(`[${queue.guild.name}] Queue is empty.`);
     });
 
-    player.on("queueEnd", (queue) => {
-        
+    player.events.on('audioTracksAdd', (queue, tracks) => {
+        const roomName = queue.channel?.name || queue.metadata?.voiceChannel?.name || 'Unknown';
+        console.log(`[${queue.guild.name}] | Room: ${roomName} | Playlist added: ${tracks.length} songs`);
     });
 
 };

@@ -1,36 +1,31 @@
-const { MessageAttachment } = require('discord.js');
+const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
+const { useQueue } = require('discord-player');
+
+module.exports.data = new SlashCommandBuilder()
+    .setName('skip')
+    .setDescription('ข้ามเพลงปัจจุบัน');
 
 module.exports.run = async (Client, inter) => {
+    const queue = useQueue(inter.guildId);
+    if (!queue || !queue.node.isPlaying())
+        return inter.followUp({ content: '❌ ไม่มีการเล่นเพลงในขณะนี้!' });
 
-    const queue = Client.player.getQueue(inter.guildId);
-    const currentTrack = queue.current;
-    if (!queue?.playing)
-        return inter.followUp({
-            content: "❌ ไม่มีการเล่นเพลงในคณะนี้!",
-        });
+    const currentTrack = queue.currentTrack;
+    queue.node.skip();
 
-    await queue.skip();
-
-    const file = new MessageAttachment('./assets/music.gif');
-
+    const file = new AttachmentBuilder('./assets/music.gif');
     inter.followUp({
-        embeds: [
-            {
-                color: FFCC33,
-                author: {
-                    name: 'Quality Players',
-                    icon_url: 'attachment://music.gif',
-                },
-                description: `เพลง: ${currentTrack}`,
-                footer: {
-                    text: `ได้ทำการข้ามเพลง`,
-                },
+        embeds: [{
+            color: 0xFFCC33,
+            author: {
+                name: 'HostWorker Players',
+                icon_url: 'attachment://music.gif',
             },
-        ],
+            description: `⏭️ ข้ามเพลง: **${currentTrack.title}**`,
+            footer: { text: 'ได้ทำการข้ามเพลง' },
+        }],
         files: [file],
     });
-} 
+};
 
-module.exports.help = {
-    name: 'skip',
-}
+module.exports.help = { name: 'skip' };

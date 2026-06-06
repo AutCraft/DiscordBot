@@ -1,52 +1,21 @@
+const { SlashCommandBuilder } = require('discord.js');
+const { useQueue } = require('discord-player');
+
+module.exports.data = new SlashCommandBuilder()
+    .setName('leave')
+    .setDescription('ออกจากห้องพูดคุย');
+
 module.exports.run = async (Client, inter) => {
+    const queue = useQueue(inter.guildId);
 
-    //await interaction.deferReply();
-    const queue = Client.player.getQueue(inter.guild);
+    if (!queue) return inter.followUp({ content: '❌ บอทไม่ได้อยู่ในห้องพูดคุยในขณะนี้!' });
 
-    if (!queue) {
-        return await inter.followUp({
-            embeds: [
-                {
-                    color: "RED",
-                    description: `❌ ไม่ได้อยู่ในห้องพูดคุย!`
-                }
-            ],
-        });
-    }
+    const botVoice = inter.guild.members.me?.voice.channelId;
+    if (botVoice && inter.member.voice.channelId !== botVoice)
+        return inter.followUp({ content: '❌ คุณต้องอยู่ในห้องพูดคุยเดียวกับบอท!' });
 
-    if (
-        inter.guild.me.voice.channelId &&
-        inter.member.voice.channelId !==
-        inter.guild.me.voice.channelId
-    )
-        return await inter.followUp({
-            embeds: [
-                {
-                    color: "RED",
-                    description: `❌ ไม่ได้อยู่ในห้องพูดคุย!`
-                }
-            ],
-        });
+    queue.delete();
+    inter.followUp({ content: '👍 ได้ทำการออกจากห้องสำเร็จ!' });
+};
 
-    try {
-        if (queue) {
-            await queue.destroy(true);
-            await inter.followUp({ content: `👍 ได้ทำการออกจากห้องสำเร็จ!` });
-        }
-    } catch (err) {
-        Client.logger(err.message, "error");
-        await inter.followUp({
-            embeds: [
-                {
-                    color: "RED",
-                    description: `❌ ไม่สามารถยกเลิกการเชื่อมต่อบอท`
-                }
-            ],
-        });
-    }
-    
-}
-
-module.exports.help = {
-    name: 'leave',
-}
+module.exports.help = { name: 'leave' };
