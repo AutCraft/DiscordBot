@@ -24,8 +24,8 @@ A powerful and customizable Discord Bot built with `discord.js` v14.
    ```env
    DISCORD_TOKEN=your_discord_bot_token
    TENORKEY=your_tenor_api_key
-   SERVER_ID_ADMIN=854890981790318592
-   PREFIX=>
+   SERVER_ID_ADMIN=your_server_id_admin
+   USER_ID_ADMIN=your_user_id_admin
    ```
 
 ## Running the Bot
