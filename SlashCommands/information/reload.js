@@ -35,20 +35,30 @@ module.exports.run = async (Client, inter) => {
     const slashCommandsPath = path.join(__dirname, '..', '..', 'SlashCommands');
     const folders = fs.readdirSync(slashCommandsPath);
 
-    let folderName;
+    let commandPath;
     for (const folder of folders) {
-        const files = fs.readdirSync(path.join(slashCommandsPath, folder));
-        if (files.includes(`${commandName}.js`)) {
-            folderName = folder;
-            break;
+        const dirPath = path.join(slashCommandsPath, folder);
+        if (!fs.statSync(dirPath).isDirectory()) continue;
+
+        const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.js'));
+        for (const file of files) {
+            const fullPath = path.join(dirPath, file);
+            try {
+                const cmd = require(fullPath);
+                if (cmd.help && cmd.help.name === commandName) {
+                    commandPath = fullPath;
+                    break;
+                }
+            } catch (err) {
+                continue;
+            }
         }
+        if (commandPath) break;
     }
 
-    if (!folderName) {
+    if (!commandPath) {
         return inter.followUp({ content: `❌ หาไฟล์คำสั่งไม่เจอ!`, flags: MessageFlags.Ephemeral });
     }
-
-    const commandPath = path.join(slashCommandsPath, folderName, `${commandName}.js`);
 
     try {
         // 1. ลบความจำเก่า (Cache) ออกไป
