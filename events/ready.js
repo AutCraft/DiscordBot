@@ -1,5 +1,6 @@
 const { REST, Routes, Events } = require('discord.js');
 const { Client } = require('../index');
+const { startVlrJobs } = require('../utils/vlrJobs');
 
 Client.once(Events.ClientReady, async (readyClient) => {
     const servers = readyClient.guilds.cache.size;
@@ -8,6 +9,8 @@ Client.once(Events.ClientReady, async (readyClient) => {
         status: 'idle'
     });
     console.log(`✅ ${readyClient.user.tag} is online!`);
+
+    startVlrJobs(readyClient);
 
     const allCommands = [...Client.SlashCmds.values()];
     const globalCommands = allCommands.filter(cmd => cmd.help.name !== 'reload').map(cmd => cmd.data);

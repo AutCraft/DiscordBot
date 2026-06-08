@@ -3,7 +3,12 @@ const { Client } = require('../index');
 Client.on('interactionCreate', async (inter) => {
     if (!inter.isChatInputCommand()) return;
 
-    await inter.deferReply({ ephemeral: false }).catch(() => {});
+    try {
+        await inter.deferReply();
+    } catch (e) {
+        console.error('[DeferReply Error] Failed to defer:', e.message);
+        return; // ห้ามรันต่อถ้า Defer ไม่สำเร็จ เพราะจะทำให้ Error InteractionNotReplied
+    }
 
     const cmd = Client.SlashCmds.get(inter.commandName);
     if (!cmd) return inter.followUp({ content: '❌ ไม่พบคำสั่งนี้!' });

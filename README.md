@@ -6,7 +6,8 @@ A powerful and customizable Discord Bot built with `discord.js` v14.
 - 🎵 Advanced Music Playback using `discord-player` (v6.7.1)
 - 🚀 Seamless YouTube extraction bypassing 403 errors using `yt-dlp` (`youtube-dl-exec`)
 - 🔊 High-quality audio encoding via native `@discordjs/opus`
-- 💬 Slash Commands support (`/play`, `/skip`, `/queue`, etc.)
+- 🎮 **Valorant Esports Tracker** integration (Live match tracking, Results, Rosters via VLR.gg API)
+- 💬 Slash Commands support (`/play`, `/skip`, `/queue`, `/valorant-upcoming`, `/valorant-live`, `/valorant-results`, `/valorant-today`, `/valorant-team`, `/valorant-player`, `/valorant-livetracker`, `/valorant-follow`, `/valorant-notify`, etc.)
 
 ## Prerequisites
 - Node.js >= 18.x
