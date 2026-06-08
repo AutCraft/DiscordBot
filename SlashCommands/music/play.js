@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { AttachmentBuilder } = require('discord.js');
 const { useMainPlayer } = require('discord-player');
 
@@ -14,7 +14,7 @@ module.exports.data = new SlashCommandBuilder()
 module.exports.run = async (Client, inter) => {
     const channel = inter.member.voice.channel;
     if (!channel)
-        return inter.followUp({ content: '❌ กรุณาเข้าห้องพูดคุยก่อน!', ephemeral: true });
+        return inter.followUp({ content: '❌ กรุณาเข้าห้องพูดคุยก่อน!', flags: MessageFlags.Ephemeral });
 
     const query = inter.options.getString('song');
     const player = useMainPlayer();

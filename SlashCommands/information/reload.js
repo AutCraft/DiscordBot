@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
@@ -15,20 +15,20 @@ module.exports.run = async (Client, inter) => {
     // กำหนดให้ใช้ได้เฉพาะในเซิร์ฟเวอร์ที่กำหนดไว้ใน .env เท่านั้น
     const adminGuildId = process.env.SERVER_ID_ADMIN;
     if (inter.guildId !== adminGuildId) {
-        return inter.followUp({ content: '❌ คำสั่งนี้ใช้ได้เฉพาะในเซิร์ฟเวอร์ผู้ดูแลระบบเท่านั้น!', ephemeral: true });
+        return inter.followUp({ content: '❌ คำสั่งนี้ใช้ได้เฉพาะในเซิร์ฟเวอร์ผู้ดูแลระบบเท่านั้น!', flags: MessageFlags.Ephemeral });
     }
 
     const adminUserId = process.env.USER_ID_ADMIN;
     // กำหนดให้ใช้ได้เฉพาะผู้ใช้ไอดีที่ระบุไว้เท่านั้น (คุณ Autan)
     if (inter.user.id !== adminUserId) {
-        return inter.followUp({ content: '❌ เฉพาะเจ้าของบอทเท่านั้นที่สามารถใช้คำสั่งนี้ได้!', ephemeral: true });
+        return inter.followUp({ content: '❌ เฉพาะเจ้าของบอทเท่านั้นที่สามารถใช้คำสั่งนี้ได้!', flags: MessageFlags.Ephemeral });
     }
 
     const commandName = inter.options.getString('command').toLowerCase();
     const command = Client.SlashCmds.get(commandName);
 
     if (!command) {
-        return inter.followUp({ content: `❌ ไม่พบคำสั่ง \`${commandName}\` ในระบบ!`, ephemeral: true });
+        return inter.followUp({ content: `❌ ไม่พบคำสั่ง \`${commandName}\` ในระบบ!`, flags: MessageFlags.Ephemeral });
     }
 
     // ค้นหาว่าไฟล์คำสั่งนี้อยู่โฟลเดอร์ไหน
@@ -45,7 +45,7 @@ module.exports.run = async (Client, inter) => {
     }
 
     if (!folderName) {
-        return inter.followUp({ content: `❌ หาไฟล์คำสั่งไม่เจอ!`, ephemeral: true });
+        return inter.followUp({ content: `❌ หาไฟล์คำสั่งไม่เจอ!`, flags: MessageFlags.Ephemeral });
     }
 
     const commandPath = path.join(slashCommandsPath, folderName, `${commandName}.js`);

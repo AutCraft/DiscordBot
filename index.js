@@ -59,4 +59,12 @@ fs.readdirSync('./SlashCommands').forEach(dir => {
     });
 });
 
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[ANTI-CRASH] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('[ANTI-CRASH] Uncaught Exception:', error);
+});
+
 client.login(process.env.DISCORD_TOKEN);

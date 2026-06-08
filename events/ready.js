@@ -1,13 +1,13 @@
-const { REST, Routes } = require('discord.js');
+const { REST, Routes, Events } = require('discord.js');
 const { Client } = require('../index');
 
-Client.on('ready', async () => {
-    const servers = Client.guilds.cache.size;
-    Client.user.setPresence({
+Client.once(Events.ClientReady, async (readyClient) => {
+    const servers = readyClient.guilds.cache.size;
+    readyClient.user.setPresence({
         activities: [{ name: `/help | ${servers} Servers`, type: 3 }], // 3 = WATCHING
         status: 'idle'
     });
-    console.log(`✅ ${Client.user.tag} is online!`);
+    console.log(`✅ ${readyClient.user.tag} is online!`);
 
     const allCommands = [...Client.SlashCmds.values()];
     const globalCommands = allCommands.filter(cmd => cmd.help.name !== 'reload').map(cmd => cmd.data);
