@@ -30,6 +30,11 @@ module.exports.registerPlayerEvents = (player) => {
         console.log(`[${queue.guild.name}] Queue is empty.`);
     });
 
+    player.events.on('audioTrackAdd', (queue, tracks) => {
+        const roomName = queue.channel?.name || queue.metadata?.voiceChannel?.name || 'Unknown';
+        console.log(`[${queue.guild.name}] | Room: ${roomName} | Playlist added: ${tracks.length} songs`);
+    });
+
     player.events.on('audioTracksAdd', (queue, tracks) => {
         const roomName = queue.channel?.name || queue.metadata?.voiceChannel?.name || 'Unknown';
         console.log(`[${queue.guild.name}] | Room: ${roomName} | Playlist added: ${tracks.length} songs`);
