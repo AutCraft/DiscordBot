@@ -70,7 +70,7 @@ module.exports.run = async (Client, inter) => {
         // 3. เอาคำสั่งใหม่ไปทับของเก่าในระบบ
         Client.SlashCmds.set(newCommand.help.name, newCommand);
 
-        await inter.followUp({ content: `✅ รีโหลดคำสั่ง \`/${commandName}\` สำเร็จแล้ว! (เพลงไม่ดับแน่นอน)` });
+        await inter.followUp({ content: `✅ รีโหลดคำสั่ง \`/${commandName}\` สำเร็จแล้ว!` });
     } catch (error) {
         console.error(error);
         await inter.followUp({ content: `❌ เกิดข้อผิดพลาดตอนรีโหลด: \`${error.message}\`` });
