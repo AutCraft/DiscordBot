@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { getVlrErrorEmbed, getVlrAttachment } = require('../../utils/vlrApi');
+const { vlrApi, getVlrErrorEmbed, getVlrAttachment } = require('../../utils/vlrApi');
 
 module.exports.data = new SlashCommandBuilder()
     .setName('valorant-follow')
@@ -44,63 +44,84 @@ module.exports.run = async (Client, inter) => {
         db = {};
     }
 
-    const lookupPath = path.join(__dirname, '../../db/vlrLookup.json');
-    let lookup;
-    try {
-        lookup = JSON.parse(fs.readFileSync(lookupPath, 'utf8'));
-    } catch (e) {
-        lookup = { teams: {} };
+    if (!db[userId]) {
+        db[userId] = [];
     }
 
-    if (!db[userId]) {
+    // Migration helper: If an old structure exists (array of strings/numbers), empty it.
+    if (db[userId].length > 0 && typeof db[userId][0] !== 'object') {
         db[userId] = [];
     }
 
     if (subcommand === 'add') {
         const teamQuery = inter.options.getString('team').toLowerCase();
-        const teamId = lookup.teams[teamQuery];
+        
+        try {
+            const searchRes = await vlrApi.get(`/v2/search?q=${encodeURIComponent(teamQuery)}`);
+            const teams = searchRes.data?.data?.segments?.results?.teams || [];
 
-        if (!teamId) {
-            const embed = getVlrErrorEmbed(`🔍 ไม่พบทีม \`${teamQuery}\` ในฐานข้อมูล`);
+            if (teams.length === 0) {
+                const embed = getVlrErrorEmbed(`🔍 ไม่พบทีม \`${teamQuery}\` ในระบบ`);
+                return inter.followUp({ embeds: [embed], files: getVlrAttachment() ? [getVlrAttachment()] : [], flags: MessageFlags.Ephemeral });
+            }
+
+            const team = teams[0];
+            const teamId = team.id;
+            const teamName = team.name;
+
+            if (db[userId].some(t => t.id === teamId)) {
+                return inter.followUp({ content: `✅ คุณติดตามทีม **${teamName}** อยู่แล้ว`, flags: MessageFlags.Ephemeral });
+            }
+
+            if (db[userId].length >= 5) {
+                return inter.followUp({ content: `❌ คุณสามารถติดตามได้สูงสุด 5 ทีมเท่านั้น!`, flags: MessageFlags.Ephemeral });
+            }
+
+            db[userId].push({ id: teamId, name: teamName });
+            fs.writeFileSync(dbPath, JSON.stringify(db, null, 4));
+            await inter.followUp({ content: `✅ เพิ่มทีม **${teamName}** ลงในรายการติดตามแล้ว! บอทจะ DM หาคุณเมื่อทีมนี้กำลังจะแข่ง`, flags: MessageFlags.Ephemeral });
+
+        } catch (err) {
+            console.error('Follow Add Error:', err);
+            const embed = getVlrErrorEmbed('❌ เกิดข้อผิดพลาดในการดึงข้อมูลจาก VLR API');
             return inter.followUp({ embeds: [embed], files: getVlrAttachment() ? [getVlrAttachment()] : [], flags: MessageFlags.Ephemeral });
         }
 
-        if (db[userId].includes(teamId)) {
-            return inter.followUp({ content: `✅ คุณติดตามทีม \`${teamQuery}\` อยู่แล้ว`, flags: MessageFlags.Ephemeral });
-        }
-
-        if (db[userId].length >= 5) {
-            return inter.followUp({ content: `❌ คุณสามารถติดตามได้สูงสุด 5 ทีมเท่านั้น!`, flags: MessageFlags.Ephemeral });
-        }
-
-        db[userId].push(teamId);
-        fs.writeFileSync(dbPath, JSON.stringify(db, null, 4));
-        await inter.followUp({ content: `✅ เพิ่มทีม \`${teamQuery}\` ลงในรายการติดตามแล้ว! บอทจะ DM หาคุณเมื่อทีมนี้กำลังจะแข่ง`, flags: MessageFlags.Ephemeral });
-
     } else if (subcommand === 'remove') {
         const teamQuery = inter.options.getString('team').toLowerCase();
-        const teamId = lookup.teams[teamQuery];
+        
+        try {
+            const searchRes = await vlrApi.get(`/v2/search?q=${encodeURIComponent(teamQuery)}`);
+            const teams = searchRes.data?.data?.segments?.results?.teams || [];
 
-        if (!teamId || !db[userId].includes(teamId)) {
-            return inter.followUp({ content: `❌ คุณไม่ได้ติดตามทีม \`${teamQuery}\` หรือไม่พบในระบบ`, flags: MessageFlags.Ephemeral });
+            if (teams.length === 0) {
+                const embed = getVlrErrorEmbed(`🔍 ไม่พบทีม \`${teamQuery}\` ในระบบ`);
+                return inter.followUp({ embeds: [embed], files: getVlrAttachment() ? [getVlrAttachment()] : [], flags: MessageFlags.Ephemeral });
+            }
+
+            const team = teams[0];
+            const teamId = team.id;
+
+            if (!db[userId].some(t => t.id === teamId)) {
+                return inter.followUp({ content: `❌ คุณไม่ได้ติดตามทีม **${team.name}**`, flags: MessageFlags.Ephemeral });
+            }
+
+            db[userId] = db[userId].filter(t => t.id !== teamId);
+            fs.writeFileSync(dbPath, JSON.stringify(db, null, 4));
+            await inter.followUp({ content: `✅ ลบทีม **${team.name}** ออกจากการติดตามแล้ว`, flags: MessageFlags.Ephemeral });
+
+        } catch (err) {
+            console.error('Follow Remove Error:', err);
+            const embed = getVlrErrorEmbed('❌ เกิดข้อผิดพลาดในการดึงข้อมูลจาก VLR API');
+            return inter.followUp({ embeds: [embed], files: getVlrAttachment() ? [getVlrAttachment()] : [], flags: MessageFlags.Ephemeral });
         }
-
-        db[userId] = db[userId].filter(id => id !== teamId);
-        fs.writeFileSync(dbPath, JSON.stringify(db, null, 4));
-        await inter.followUp({ content: `✅ ลบทีม \`${teamQuery}\` ออกจากการติดตามแล้ว`, flags: MessageFlags.Ephemeral });
 
     } else if (subcommand === 'list') {
         if (db[userId].length === 0) {
             return inter.followUp({ content: `📭 คุณยังไม่ได้ติดตามทีมใดเลย\nใช้คำสั่ง \`/valorant-follow add\` เพื่อเริ่มติดตาม`, flags: MessageFlags.Ephemeral });
         }
 
-        // Reverse lookup to find names
-        const followedNames = [];
-        for (const tid of db[userId]) {
-            let foundName = Object.keys(lookup.teams).find(k => lookup.teams[k] === tid);
-            followedNames.push(`• **${foundName ? foundName.toUpperCase() : `ID: ${tid}`}**`);
-        }
-
+        const followedNames = db[userId].map(t => `• **${t.name}**`);
         await inter.followUp({ content: `📋 **รายการทีมที่คุณติดตาม (${db[userId].length}/5):**\n${followedNames.join('\n')}`, flags: MessageFlags.Ephemeral });
     }
 };

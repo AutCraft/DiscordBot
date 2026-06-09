@@ -9,7 +9,7 @@ module.exports.run = async (Client, inter) => {
 
 
     try {
-        const response = await vlrApi.get('/match?q=live_score');
+        const response = await vlrApi.get('/v2/match?q=live_score');
         const segments = response.data?.data?.segments || [];
 
         if (segments.length === 0) {
@@ -79,7 +79,7 @@ module.exports.run = async (Client, inter) => {
             }
 
             try {
-                const res = await vlrApi.get('/match?q=live_score');
+                const res = await vlrApi.get('/v2/match?q=live_score');
                 const liveMatches = res.data?.data?.segments || [];
 
                 if (liveMatches.length === 0) {

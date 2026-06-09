@@ -35,28 +35,19 @@ function getVlrErrorEmbed(message) {
 }
 
 function buildAsciiMatch(team1, team2, scoreOrVs, event, timeOrMap) {
-    const padCenter = (str, len) => {
-        let s = String(str || '').trim().replace(/\*\*/g, '');
-        if (s.length > len) s = s.substring(0, len - 1) + '…';
-        const pad = len - s.length;
-        const left = Math.floor(pad / 2);
-        const right = pad - left;
-        return ' '.repeat(left) + s + ' '.repeat(right);
-    };
+    const cleanStr = (s) => String(s || '').trim().replace(/\*\*/g, '');
+    let t1 = cleanStr(team1).toUpperCase();
+    let t2 = cleanStr(team2).toUpperCase();
+    let mid = cleanStr(scoreOrVs);
+    let ev = cleanStr(event);
+    let btm = cleanStr(timeOrMap);
 
-    const t1 = padCenter(team1, 14);
-    const t2 = padCenter(team2, 14);
-    const mid = padCenter(scoreOrVs, 6);
-    const ev = padCenter(event, 36);
-    const btm = padCenter(timeOrMap, 36);
-
-    return `┌──────────────┬──────┬──────────────┐
-│${t1}│${mid}│${t2}│
-├──────────────┴──────┴──────────────┤
-│${ev}│
-├────────────────────────────────────┤
-│${btm}│
-└────────────────────────────────────┘`;
+    return `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ${t1} ${mid} ${t2}
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📌 EVENT : ${ev}
+┃ 🕒 TIME  : ${btm}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 }
 
 module.exports = {

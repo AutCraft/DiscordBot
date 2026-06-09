@@ -13,27 +13,22 @@ module.exports.data = new SlashCommandBuilder()
     );
 
 module.exports.run = async (Client, inter) => {
-
-
     const playerQuery = inter.options.getString('player').toLowerCase();
 
     try {
-        const lookupPath = path.join(__dirname, '../../db/vlrLookup.json');
-        let lookupData;
-        try {
-            lookupData = JSON.parse(fs.readFileSync(lookupPath, 'utf8'));
-        } catch (e) {
-            lookupData = { players: {} };
-        }
+        // 1. Search for the player
+        const searchRes = await vlrApi.get(`/v2/search?q=${encodeURIComponent(playerQuery)}`);
+        const players = searchRes.data?.data?.segments?.results?.players || [];
 
-        const playerId = lookupData.players[playerQuery];
-
-        if (!playerId) {
-            const embed = getVlrErrorEmbed('🔍 ไม่พบผู้เล่นนี้ในฐานข้อมูล กรุณาเพิ่มใน vlrLookup.json ก่อน');
+        if (players.length === 0) {
+            const embed = getVlrErrorEmbed(`🔍 ไม่พบผู้เล่น \`${playerQuery}\` ในระบบ`);
             return inter.followUp({ embeds: [embed], files: getVlrAttachment() ? [getVlrAttachment()] : [] });
         }
 
-        const response = await vlrApi.get(`/player?id=${playerId}&q=profile&timespan=all`);
+        const playerId = players[0].id;
+
+        // Fetch player profile from V2 API
+        const response = await vlrApi.get(`/v2/player?id=${playerId}&q=profile&timespan=all`);
         const playerData = response.data?.data?.segments?.[0];
 
         if (!playerData) {
@@ -41,37 +36,39 @@ module.exports.run = async (Client, inter) => {
             return inter.followUp({ embeds: [embed], files: getVlrAttachment() ? [getVlrAttachment()] : [] });
         }
 
-        console.log("=== PLAYER DATA ===");
-        console.log(JSON.stringify(playerData, null, 2));
+        const info = playerData;
+        const currentTeams = [playerData.current_team].filter(Boolean);
+        const agentStats = playerData.agent_stats || [];
 
         const embed = getVlrEmbedTemplate();
-        embed.title = `👤 ${playerData.name || 'N/A'} (${playerData.real_name || 'N/A'})`;
-        if (playerData.avatar) {
-            embed.thumbnail = { url: playerData.avatar };
+        embed.title = `👤 ${info.name || 'N/A'} (${info.real_name || 'N/A'})`;
+        if (info.avatar && info.avatar !== '') {
+            let avatarUrl = info.avatar;
+            if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
+            embed.thumbnail = { url: avatarUrl };
         }
 
-        const stats = playerData.agent_stats[0] || {};
+        const stats = agentStats[0] || {};
         const statsDesc = `Rating:  ${stats.rating || '-'}\nACS:     ${stats.acs || '-'}\nK/D:     ${stats.kd || '-'}\nADR:     ${stats.adr || '-'}\nKAST%:   ${stats.kast || '-'}`;
 
         let agentsDesc = '';
-        const agents = playerData.agent_stats || [];
-        for (let i = 0; i < Math.min(agents.length, 3); i++) {
-            const a = agents[i];
-            agentsDesc += `${i + 1}. ${a.agent} — ${a.usage_count} usage · Rating ${a.usage_pct}\n`;
+        for (let i = 0; i < Math.min(agentStats.length, 3); i++) {
+            const a = agentStats[i];
+            agentsDesc += `${i + 1}. ${a.agent} — ${a.use_count || a.usage_count} usage · Win ${a.use_pct || a.usage_pct}\n`;
         }
 
         let teamInfo = '-';
-        if (playerData.current_team) {
-            if (typeof playerData.current_team === 'object') {
-                teamInfo = `${playerData.current_team.name} [ ${playerData.current_team.joined || '-'} ]`;
-            } else {
-                teamInfo = String(playerData.current_team);
-            }
+        if (currentTeams.length > 0) {
+            const t = currentTeams[0];
+            teamInfo = `${t.name} [ ${t.status || 'Active'} ]`;
+        } else if (playerData.past_teams && playerData.past_teams.length > 0) {
+            const t = playerData.past_teams[0];
+            teamInfo = `(Past) ${t.name} [ ${t.dates || '-'} ]`;
         }
 
         embed.fields = [
             { name: '🛡️ Team', value: teamInfo, inline: false },
-            { name: '📊 Stats (Last 90d)', value: `\`\`\`\n${statsDesc}\n\`\`\``, inline: false },
+            { name: '📊 Stats (All Time)', value: `\`\`\`\n${statsDesc}\n\`\`\``, inline: false },
             { name: '🦸 Top 3 Agents', value: agentsDesc ? agentsDesc : '-', inline: false }
         ];
 
