@@ -103,4 +103,4 @@ module.exports.run = async (Client, inter) => {
     }
 };
 
-module.exports.help = { name: 'valorant-live-tracker' };
+module.exports.help = { name: 'valorant-livetracker' };
