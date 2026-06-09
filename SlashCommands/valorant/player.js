@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
 const { vlrApi, getVlrEmbedTemplate, getVlrAttachment, getVlrErrorEmbed } = require('../../utils/vlrApi');
+
+const CLEAN = (s) => (!s || ['N/A', 'TBA', 'TBD'].includes(String(s).trim())) ? '-' : String(s);
 
 module.exports.data = new SlashCommandBuilder()
     .setName('valorant-player')
@@ -16,7 +16,7 @@ module.exports.run = async (Client, inter) => {
     const playerQuery = inter.options.getString('player').toLowerCase();
 
     try {
-        // 1. Search for the player
+        // Search for player by name
         const searchRes = await vlrApi.get(`/v2/search?q=${encodeURIComponent(playerQuery)}`);
         const players = searchRes.data?.data?.segments?.results?.players || [];
 
@@ -25,60 +25,58 @@ module.exports.run = async (Client, inter) => {
             return inter.followUp({ embeds: [embed], files: getVlrAttachment() ? [getVlrAttachment()] : [] });
         }
 
-        const playerId = players[0].id;
+        // Fetch full player profile
+        const { data } = await vlrApi.get(`/v2/player?id=${players[0].id}&q=profile&timespan=all`);
+        const player = data?.data?.segments?.[0];
 
-        // Fetch player profile from V2 API
-        const response = await vlrApi.get(`/v2/player?id=${playerId}&q=profile&timespan=all`);
-        const playerData = response.data?.data?.segments?.[0];
-
-        if (!playerData) {
-            const embed = getVlrErrorEmbed('📭 ไม่พบข้อมูลผู้เล่นจาก vlrggapi');
-            return inter.followUp({ embeds: [embed], files: getVlrAttachment() ? [getVlrAttachment()] : [] });
+        if (!player) {
+            return inter.followUp({ embeds: [getVlrErrorEmbed('📭 ไม่พบข้อมูลผู้เล่นจาก vlrggapi')], files: getVlrAttachment() ? [getVlrAttachment()] : [] });
         }
 
-        const info = playerData;
-        const currentTeams = [playerData.current_team].filter(Boolean);
-        const agentStats = playerData.agent_stats || [];
-
+        const agentStats = player.agent_stats || [];
         const embed = getVlrEmbedTemplate();
-        embed.title = `👤 ${info.name || 'N/A'} (${info.real_name || 'N/A'})`;
-        if (info.avatar && info.avatar !== '') {
-            let avatarUrl = info.avatar;
-            if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
-            embed.thumbnail = { url: avatarUrl };
-        }
+        embed.title = `👤 ${player.name || 'N/A'} (${player.real_name || 'N/A'})`;
 
-        const stats = agentStats[0] || {};
-        const statsDesc = `Rating:  ${stats.rating || '-'}\nACS:     ${stats.acs || '-'}\nK/D:     ${stats.kd || '-'}\nADR:     ${stats.adr || '-'}\nKAST%:   ${stats.kast || '-'}`;
+        const avatarUrl = player.avatar;
+        if (avatarUrl) embed.thumbnail = { url: avatarUrl.startsWith('//') ? `https:${avatarUrl}` : avatarUrl };
 
-        let agentsDesc = '';
-        for (let i = 0; i < Math.min(agentStats.length, 3); i++) {
-            const a = agentStats[i];
-            agentsDesc += `${i + 1}. ${a.agent} — ${a.use_count || a.usage_count} usage · Win ${a.use_pct || a.usage_pct}\n`;
-        }
+        // Build top stats from top agent
+        const topAgent = agentStats[0] || {};
+        const statsBlock = [
+            `Rating:  ${CLEAN(topAgent.rating)}`,
+            `ACS:     ${CLEAN(topAgent.acs)}`,
+            `K/D:     ${CLEAN(topAgent.kd)}`,
+            `ADR:     ${CLEAN(topAgent.adr)}`,
+            `KAST%:   ${CLEAN(topAgent.kast)}`,
+        ].join('\n');
 
-        let teamInfo = '-';
-        if (currentTeams.length > 0) {
-            const t = currentTeams[0];
-            teamInfo = `${t.name} [ ${t.status || 'Active'} ]`;
-        } else if (playerData.past_teams && playerData.past_teams.length > 0) {
-            const t = playerData.past_teams[0];
-            teamInfo = `(Past) ${t.name} [ ${t.dates || '-'} ]`;
+        // Top 3 agents
+        const agentsText = agentStats.slice(0, 3)
+            .map((a, i) => `${i + 1}. ${a.agent} — ${a.use_count || a.usage_count} games · ${a.use_pct || a.usage_pct}`)
+            .join('\n') || '-';
+
+        // Team info
+        const currentTeam = player.current_team;
+        let teamText = '-';
+        if (currentTeam?.name) {
+            teamText = `${currentTeam.name} [ ${currentTeam.status || 'Active'} ]`;
+        } else if (player.past_teams?.length > 0) {
+            const t = player.past_teams[0];
+            teamText = `(Past) ${t.name} [ ${t.dates || '-'} ]`;
         }
 
         embed.fields = [
-            { name: '🛡️ Team', value: teamInfo, inline: false },
-            { name: '📊 Stats (All Time)', value: `\`\`\`\n${statsDesc}\n\`\`\``, inline: false },
-            { name: '🦸 Top 3 Agents', value: agentsDesc ? agentsDesc : '-', inline: false }
+            { name: '🛡️ Team', value: teamText, inline: false },
+            { name: '📊 Stats (All Time)', value: `\`\`\`\n${statsBlock}\n\`\`\``, inline: false },
+            { name: '🦸 Top 3 Agents', value: agentsText, inline: false },
         ];
 
         const files = getVlrAttachment() ? [getVlrAttachment()] : [];
         await inter.followUp({ embeds: [embed], files });
 
     } catch (err) {
-        console.error(err);
-        const errorEmbed = getVlrErrorEmbed('❌ เกิดข้อผิดพลาดในการดึงข้อมูล vlrggapi');
-        await inter.followUp({ embeds: [errorEmbed], files: getVlrAttachment() ? [getVlrAttachment()] : [] });
+        console.error('[valorant-player]', err.message);
+        await inter.followUp({ embeds: [getVlrErrorEmbed('❌ เกิดข้อผิดพลาดในการดึงข้อมูล')], files: getVlrAttachment() ? [getVlrAttachment()] : [] });
     }
 };
 
